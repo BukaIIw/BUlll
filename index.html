@@ -48,6 +48,9 @@
             color: #888;
             font-style: italic;
         }
+        .error {
+            color: #dc3545;
+        }
         .input-container {
             display: flex;
             gap: 10px;
@@ -105,19 +108,21 @@
             chatOutput.scrollTop = chatOutput.scrollHeight;
 
             try {
-                let response = await fetch('/chat', {
+                let response = await fetch('http://localhost:5000/chat', { // Укажи полный URL для теста
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({'message': input})
                 });
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 let data = await response.json();
-                // Удаляем индикатор загрузки и добавляем полный ответ
                 let messages = chatOutput.getElementsByClassName("loading");
                 while (messages.length > 0) messages[0].remove();
                 chatOutput.innerHTML += `<div class="message bot-message">Бот: ${data.response}</div>`;
                 chatOutput.scrollTop = chatOutput.scrollHeight;
             } catch (error) {
-                chatOutput.innerHTML += `<div class="message bot-message">Ошибка: ${error.message}</div>`;
+                let messages = chatOutput.getElementsByClassName("loading");
+                while (messages.length > 0) messages[0].remove();
+                chatOutput.innerHTML += `<div class="message error">Ошибка: ${error.message}</div>`;
             }
             document.getElementById("userInput").value = "";
         }
@@ -130,10 +135,11 @@
 
         async function loadHistory() {
             try {
-                let response = await fetch('/history', {
+                let response = await fetch('http://localhost:5000/history', { // Укажи полный URL для теста
                     method: 'GET',
                     headers: {'Content-Type': 'application/json'}
                 });
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 let data = await response.json();
                 if (data.history && data.history.length > 0) {
                     chatOutput.innerHTML = ""; // Очищаем текущий чат
@@ -146,7 +152,7 @@
                     chatOutput.innerHTML += `<div class="message bot-message">История пуста.</div>`;
                 }
             } catch (error) {
-                chatOutput.innerHTML += `<div class="message bot-message">Ошибка загрузки истории: ${error.message}</div>`;
+                chatOutput.innerHTML += `<div class="message error">Ошибка загрузки истории: ${error.message}</div>`;
             }
         }
     </script>
