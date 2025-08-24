@@ -1,24 +1,11 @@
-# Веб-приложение с чат-ботом, который ищет информацию в интернете
 from flask import Flask, request, jsonify, send_from_directory
 import json
 import os
-import requests
-import random
+from googlesearch import search
+from datetime import datetime
 
 # Инициализация Flask
 app = Flask(__name__, static_folder='.')
-
-# API-ключ для SerpApi (замени на свой ключ)
-SERP_API_KEY = "YOUR_SERPAPI_KEY_HERE"  # Получи ключ на https://serpapi.com/
-
-# Базовые ответы для простых фраз
-responses = {
-    "привет": ["Привет! Как дела?", "Здорово, привет!"],
-    "как дела": ["Отлично, а у тебя?", "Норм, как у тебя дела?"],
-    "что делаешь": ["Ищу инфу для тебя!", "Болтаю и шарю в интернете."],
-    "пока": ["Пока-пока!", "До встречи!"],
-    "кто ты": ["Я ИИ-бот, который ищет ответы в интернете!", "Твой помощник по поиску инфы!"]
-}
 
 # Файл для хранения истории диалогов
 HISTORY_FILE = "chat_history.json"
@@ -35,36 +22,25 @@ def save_history(history):
     with open(HISTORY_FILE, "w", encoding="utf-8") as f:
         json.dump(history, f, ensure_ascii=False, indent=2)
 
-# Поиск в интернете через SerpApi
+# Поиск в интернете через googlesearch-python
 def search_web(query):
     try:
-        url = f"https://serpapi.com/search.json?q={query}&api_key={SERP_API_KEY}"
-        response = requests.get(url)
-        data = response.json()
-        # Извлекаем первый результат поиска
-        if "organic_results" in data and len(data["organic_results"]) > 0:
-            result = data["organic_results"][0].get("snippet", "Не нашел точного ответа.")
-            return result
+        # Поиск первых 3 результатов
+        results = list(search(query, num_results=3, lang="ru"))
+        if results:
+            return f"Найденные ссылки: {', '.join(results)}. Посмотри там!"
         return "Ничего не нашел, попробуй другой вопрос!"
     except Exception as e:
         return f"Ошибка поиска: {str(e)}"
 
-# Получение ответа бота
-def get_response(message):
-    message = message.lower().strip()
-    # Проверяем, есть ли ответ в словаре
-    for key in responses:
-        if key in message:
-            return random.choice(responses[key])
-    
-    # Если нет в словаре, ищем в интернете
-    web_result = search_web(message)
-    return web_result
-
-# Главная страница
-@app.route('/')
-def home():
-    return send_from_directory('.', 'index.html')
+# Обучение на основе истории
+def train_from_history(message, response):
+    history = load_history()
+    user_message_lower = message.lower().strip()
+    # Добавляем новый ответ в историю
+    history.append({"user": user_message_lower, "bot": response, "timestamp": datetime.now().isoformat()})
+    save_history(history)
+    return history
 
 # Эндпоинт для обработки сообщений
 @app.route('/chat', methods=['POST'])
@@ -73,23 +49,35 @@ def chat():
     if not user_message:
         return jsonify({'response': 'Пожалуйста, отправьте сообщение!'})
     
-    # Получение ответа
-    response = get_response(user_message)
+    # Поиск ответа в интернете
+    web_response = search_web(user_message)
     
-    # Сохранение в историю
-    history = load_history()
-    history.append({"user": user_message, "bot": response})
-    save_history(history)
+    # Обучение на основе текущего запроса и ответа
+    history = train_from_history(user_message, web_response)
     
-    # Имитация самообучения: добавляем новый ответ в словарь
-    if len(history) % 10 == 0:
-        last_entry = history[-1]
-        user_message_lower = user_message.lower().strip()
-        if user_message_lower not in responses:
-            responses[user_message_lower] = [response]
-            print(f"Добавлен новый ответ: {user_message_lower} -> {response}")
+    # Улучшение ответа на основе предыдущих диалогов
+    improved_response = improve_response(user_message, history)
+    
+    return jsonify({'response': improved_response})
 
-    return jsonify({'response': response})
+# Улучшение ответа на основе истории
+def improve_response(message, history):
+    message_lower = message.lower().strip()
+    similar_responses = []
+    
+    for entry in history[-10:]:  # Берем последние 10 записей для анализа
+        if message_lower in entry["user"]:
+            similar_responses.append(entry["bot"])
+    
+    if similar_responses:
+        return f"На основе прошлого: {random.choice(similar_responses)}. Также: {search_web(message)}"
+    return search_web(message)
+
+import random
+# Главная страница
+@app.route('/')
+def home():
+    return send_from_directory('.', 'index.html')
 
 # Запуск сервера
 if __name__ == "__main__":
