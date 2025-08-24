@@ -44,6 +44,10 @@
             margin-right: 20%;
             margin-left: 5px;
         }
+        .loading {
+            color: #888;
+            font-style: italic;
+        }
         .input-container {
             display: flex;
             gap: 10px;
@@ -65,6 +69,18 @@
         button:hover {
             background: #0056b3;
         }
+        .history-button {
+            margin-top: 10px;
+            padding: 5px 10px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .history-button:hover {
+            background: #218838;
+        }
     </style>
 </head>
 <body>
@@ -75,13 +91,17 @@
             <input type="text" id="userInput" placeholder="Спроси что-нибудь...">
             <button onclick="sendMessage()">Отправить</button>
         </div>
+        <button class="history-button" onclick="loadHistory()">Показать историю</button>
     </div>
     <script>
+        let chatOutput = document.getElementById("chatOutput");
+
         async function sendMessage() {
             let input = document.getElementById("userInput").value;
             if (!input.trim()) return;
-            let chatOutput = document.getElementById("chatOutput");
+
             chatOutput.innerHTML += `<div class="message user-message">Ты: ${input}</div>`;
+            chatOutput.innerHTML += `<div class="message bot-message loading">Загружаю ответ...</div>`;
             chatOutput.scrollTop = chatOutput.scrollHeight;
 
             try {
@@ -91,6 +111,9 @@
                     body: JSON.stringify({'message': input})
                 });
                 let data = await response.json();
+                // Удаляем индикатор загрузки и добавляем полный ответ
+                let messages = chatOutput.getElementsByClassName("loading");
+                while (messages.length > 0) messages[0].remove();
                 chatOutput.innerHTML += `<div class="message bot-message">Бот: ${data.response}</div>`;
                 chatOutput.scrollTop = chatOutput.scrollHeight;
             } catch (error) {
@@ -104,6 +127,28 @@
                 sendMessage();
             }
         });
+
+        async function loadHistory() {
+            try {
+                let response = await fetch('/history', {
+                    method: 'GET',
+                    headers: {'Content-Type': 'application/json'}
+                });
+                let data = await response.json();
+                if (data.history && data.history.length > 0) {
+                    chatOutput.innerHTML = ""; // Очищаем текущий чат
+                    data.history.forEach(entry => {
+                        chatOutput.innerHTML += `<div class="message user-message">Ты: ${entry.user}</div>`;
+                        chatOutput.innerHTML += `<div class="message bot-message">Бот: ${entry.bot}</div>`;
+                    });
+                    chatOutput.scrollTop = chatOutput.scrollHeight;
+                } else {
+                    chatOutput.innerHTML += `<div class="message bot-message">История пуста.</div>`;
+                }
+            } catch (error) {
+                chatOutput.innerHTML += `<div class="message bot-message">Ошибка загрузки истории: ${error.message}</div>`;
+            }
+        }
     </script>
 </body>
 </html>
