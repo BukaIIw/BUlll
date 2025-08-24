@@ -3,9 +3,11 @@ import json
 import os
 from googlesearch import search
 from datetime import datetime
+from flask_cors import CORS  # Добавляем поддержку CORS
 
-# Инициализация Flask
+# Инициализация Flask с CORS
 app = Flask(__name__, static_folder='.')
+CORS(app)  # Разрешаем кросс-оригин запросы
 
 # Файл для хранения истории диалогов
 HISTORY_FILE = "chat_history.json"
@@ -42,30 +44,12 @@ def train_from_history(message, response):
     save_history(history)
     return history
 
-# Эндпоинт для обработки сообщений
-@app.route('/chat', methods=['POST'])
-def chat():
-    user_message = request.json.get('message', '')
-    if not user_message:
-        return jsonify({'response': 'Пожалуйста, отправьте сообщение!'})
-    
-    # Поиск ответа в интернете
-    web_response = search_web(user_message)
-    
-    # Обучение на основе текущего запроса и ответа
-    history = train_from_history(user_message, web_response)
-    
-    # Улучшение ответа на основе предыдущих диалогов
-    improved_response = improve_response(user_message, history)
-    
-    return jsonify({'response': improved_response})
-
 # Улучшение ответа на основе истории
 def improve_response(message, history):
     message_lower = message.lower().strip()
     similar_responses = []
     
-    for entry in history[-10:]:  # Берем последние 10 записей для анализа
+    for entry in history[-10:]:  # Анализ последних 10 записей
         if message_lower in entry["user"]:
             similar_responses.append(entry["bot"])
     
@@ -73,7 +57,32 @@ def improve_response(message, history):
         return f"На основе прошлого: {random.choice(similar_responses)}. Также: {search_web(message)}"
     return search_web(message)
 
-import random
+# Эндпоинт для обработки сообщений
+@app.route('/chat', methods=['POST'])
+def chat():
+    try:
+        user_message = request.json.get('message', '')
+        if not user_message:
+            return jsonify({'response': 'Пожалуйста, отправьте сообщение!'}), 400
+        
+        # Поиск и улучшение ответа
+        web_response = search_web(user_message)
+        history = train_from_history(user_message, web_response)
+        improved_response = improve_response(user_message, history)
+        
+        return jsonify({'response': improved_response}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Эндпоинт для загрузки истории
+@app.route('/history', methods=['GET'])
+def get_history():
+    try:
+        history = load_history()
+        return jsonify({'history': history}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # Главная страница
 @app.route('/')
 def home():
@@ -81,4 +90,4 @@ def home():
 
 # Запуск сервера
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000, debug=True)
