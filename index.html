@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ИИ Чат-бот с поиском 24/7</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .chat-container {
+            max-width: 600px;
+            margin: auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        .chat-box {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 10px;
+            background: #fafafa;
+        }
+        .message {
+            margin: 10px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .user-message {
+            background: #007bff;
+            color: white;
+            margin-left: 20%;
+            margin-right: 5px;
+        }
+        .bot-message {
+            background: #e9ecef;
+            color: black;
+            margin-right: 20%;
+            margin-left: 5px;
+        }
+        .input-container {
+            display: flex;
+            gap: 10px;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <h1>Чат с ИИ (поиск в интернете)</h1>
+        <div class="chat-box" id="chatOutput"></div>
+        <div class="input-container">
+            <input type="text" id="userInput" placeholder="Спроси что-нибудь...">
+            <button onclick="sendMessage()">Отправить</button>
+        </div>
+    </div>
+    <script>
+        async function sendMessage() {
+            let input = document.getElementById("userInput").value;
+            if (!input.trim()) return;
+            let chatOutput = document.getElementById("chatOutput");
+            chatOutput.innerHTML += `<div class="message user-message">Ты: ${input}</div>`;
+            chatOutput.scrollTop = chatOutput.scrollHeight;
+
+            try {
+                let response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({'message': input})
+                });
+                let data = await response.json();
+                chatOutput.innerHTML += `<div class="message bot-message">Бот: ${data.response}</div>`;
+                chatOutput.scrollTop = chatOutput.scrollHeight;
+            } catch (error) {
+                chatOutput.innerHTML += `<div class="message bot-message">Ошибка: ${error.message}</div>`;
+            }
+            document.getElementById("userInput").value = "";
+        }
+
+        document.getElementById("userInput").addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
